@@ -43,27 +43,18 @@ namespace BuyBot
             XElement xeDocument = XElement.Parse(html.Replace("&nbsp", " "));
             XElement xeDiv = xeDocument.Element("div");
 
-            Dictionary<String, String> clothes = new Dictionary<String, String>();
+            List<Clothing> catalog = new List<Clothing>();
             foreach(XElement xeArticle in xeDiv.Elements("article"))
             {
-                String[] item = grabImage(xeArticle);
-                if(item != null)
-                {
-                    clothes.Add(item[1], item[0]);
-                }               
+                Clothing article = grab(xeArticle);
+                if(article != null)
+                    catalog.Add(grab(xeArticle));
             }
-
-            //Create HTML
-            foreach(String image in clothes.Keys)
-            {
-
-            }
-            Console.WriteLine(clothes.Count + " items available");
+            saveFile(catalog);
         }
 
-        static String[] grabImage(XElement article)
+        static Clothing grab(XElement article)
         {
-            string[] info = new string[2];
             XElement inner = article.Element("div");
             XElement a = inner.Element("a");
             XElement sold = a.Element("div");
@@ -71,17 +62,70 @@ namespace BuyBot
                 return null;
             //Get the link to the Jacket
             String href = a.Attribute("href").Value;
-            info[0] = href;
             //Get the image of the jacket
             XElement pic = a.Element("img");
             String image = pic.Attribute("src").Value;
-            info[1] = image;
-            return info;
+            Clothing clothingItem = new Clothing(href, image);
+            return clothingItem;
         }
 
-        static void saveFile()
-        {
+        static void saveFile(List<Clothing> catalog)
+        {            
+            String path = "catalog.html";           
+            StringBuilder sb = new StringBuilder();
+            sb.AppendLine("<html>");
+            sb.AppendLine("<head></head>");
+            sb.AppendLine("<body>");
+            sb.AppendLine();
+            String lastStyle = "";
+            String lastCategory = "";
+            foreach (Clothing item in catalog)
+            {
+                String[] urlInParts = item.getUrl().Split('/');
+                String style = urlInParts[urlInParts.Length - 2];
+                String category = urlInParts[urlInParts.Length - 3];
+                if(!category.Equals(lastCategory))
+                {
+                    sb.Append("<h3>" + category + "</h3>" + "\n<hr>");
+                }
+                lastCategory = category;
+                if (!style.Equals(lastStyle))
+                {
+                    sb.Append("<br />");
+                }
+                lastStyle = style;
+                sb.AppendLine("<a href =\"http://www.supremenewyork.com" + item.getUrl() +"\">");
+                sb.AppendLine("<img src=\"images/" + item.getShortImg() +"\"" + " style=\"width:100px;height:100px;\" border=\"5\">");
+                sb.AppendLine("</a>");
 
+                sb.AppendLine();
+            }
+            sb.AppendLine("</body>\n</html>");
+            using (TextWriter tw = new StreamWriter(path))
+            {
+                tw.Write(sb.ToString());
+            }
+            using (WebClient client = new WebClient())
+            {
+                int counter = 0;                
+                foreach (Clothing item in catalog)
+                {
+                    counter++;
+                    client.DownloadFile("http:" + item.getImg(), "images\\" + item.getShortImg());
+
+                }               
+            }
         }
     }
 }
+
+/*
+ *         <article>
+          <div class="inner-article">
+            <a style="height:81px;" href="/shop/jackets/xobhixzgc/uoaenhqpi">
+              <img width="81" height="81" src="//d17ol771963kd3.cloudfront.net/141098/vi/E4GBOddiaDw.jpg" alt="E4gboddiadw" />
+              <div class="sold_out_tag">sold out</div>
+            </a>
+          </div>
+        </article>
+*/
